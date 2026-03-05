@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoonZu Farm Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg:       #0f1117;
+      --surface:  #1a1d27;
+      --border:   #2a2d3a;
+      --accent:   #f0a500;
+      --accent2:  #4caf7d;
+      --text:     #e4e6f0;
+      --muted:    #7a7d8e;
+      --red:      #e05c5c;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .header-left { display: flex; align-items: center; gap: 24px; }
+    header h1 { font-size: 18px; color: var(--accent); letter-spacing: .5px; }
+    nav { display: flex; gap: 4px; }
+    .nav-link {
+      color: var(--muted); text-decoration: none;
+      padding: 5px 12px; border-radius: 6px; font-size: 13px;
+      transition: background .15s, color .15s;
+    }
+    .nav-link:hover  { background: var(--border); color: var(--text); }
+    .nav-link.active { background: var(--border); color: var(--accent); font-weight: 600; }
+    #status { font-size: 12px; color: var(--muted); }
+    #status span { color: var(--accent2); }
+
+    /* ── Layout ── */
+    main {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-rows: auto auto auto;
+      gap: 16px;
+      padding: 20px 24px;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+    }
+    .card h2 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .card .big {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .card .sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* ── Timeline chart ── */
+    .chart-card {
+      grid-column: 1 / 4;
+      padding: 16px 20px 20px;
+    }
+    .chart-card h2 { margin-bottom: 12px; }
+    #timelineChart { width: 100% !important; height: 180px !important; }
+
+    /* ── Summary table ── */
+    .summary-card { grid-column: 1 / 3; }
+    .summary-card table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .summary-card th {
+      text-align: left;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--muted);
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .summary-card th.num, .summary-card td.num { text-align: right; }
+    .summary-card td {
+      padding: 7px 8px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .summary-card tr:last-child td { border-bottom: none; }
+    .summary-card tr:hover td { background: #20232f; }
+    .item-name { font-weight: 500; }
+    .value-cell { color: var(--accent2); }
+
+    /* ── Live feed ── */
+    .feed-card { grid-column: 3 / 4; grid-row: 3 / 4; }
+    #liveFeed {
+      height: 300px;
+      overflow-y: auto;
+      font-family: 'Consolas', monospace;
+      font-size: 12px;
+    }
+    .feed-row {
+      padding: 4px 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+    }
+    .feed-ts  { color: var(--muted); min-width: 60px; }
+    .feed-qty { color: var(--accent); min-width: 40px; text-align: right; }
+    .feed-item { flex: 1; }
+    .feed-val  { color: var(--accent2); }
+
+    /* ── Filter bar ── */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .filter-bar label { font-size: 12px; color: var(--muted); }
+    .filter-bar select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <h1>⚔ GoonZu Farm</h1>
+    <nav>
+      <a href="/static/index.html" class="nav-link active">Dashboard</a>
+      <a href="/static/session.html" class="nav-link">Sessions</a>
+    </nav>
+  </div>
+  <div id="status">Refreshing… <span id="lastUpdate">—</span></div>
+</header>
+
+<main>
+  <!-- Stat cards -->
+  <div class="card">
+    <h2>Today — Total Value</h2>
+    <div class="big" id="statTodayValue">—</div>
+    <div class="sub" id="statTodayQty">—</div>
+  </div>
+  <div class="card">
+    <h2>Today — Drop Events</h2>
+    <div class="big" id="statTodayEvents">—</div>
+    <div class="sub">since midnight UTC</div>
+  </div>
+  <div class="card">
+    <h2>All Time — Total Value</h2>
+    <div class="big" id="statAllTime">—</div>
+    <div class="sub" id="statAllEvents">—</div>
+  </div>
+
+  <!-- Chart -->
+  <div class="card chart-card">
+    <h2>Value Over Time (last 6 h)</h2>
+    <canvas id="timelineChart"></canvas>
+  </div>
+
+  <!-- Summary table -->
+  <div class="card summary-card">
+    <div class="filter-bar">
+      <label>Period:</label>
+      <select id="summaryHours">
+        <option value="0">All time</option>
+        <option value="1">Last 1 h</option>
+        <option value="6" selected>Last 6 h</option>
+        <option value="24">Last 24 h</option>
+      </select>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th class="num">Drops</th>
+          <th class="num">Total Qty</th>
+          <th class="num">Avg Unit</th>
+          <th class="num">Total Value</th>
+        </tr>
+      </thead>
+      <tbody id="summaryBody"></tbody>
+    </table>
+  </div>
+
+  <!-- Live feed -->
+  <div class="card feed-card">
+    <h2 style="margin-bottom:10px">Live Feed</h2>
+    <div id="liveFeed"></div>
+  </div>
+</main>
+
+<script>
+  const fmtM  = n => n == null ? '—' : Number(n).toLocaleString('en') + ' M';
+  const fmtN  = n => n == null ? '—' : Number(n).toLocaleString('en');
+  const tsHHMM = iso => iso ? iso.slice(11, 19) : '—';
+
+  // ── Chart setup ──────────────────────────────────────────────────────────
+  const ctx = document.getElementById('timelineChart').getContext('2d');
+  const chart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: [], datasets: [{
+      label: 'Total Value [M]',
+      data: [],
+      backgroundColor: 'rgba(240,165,0,0.55)',
+      borderColor:     'rgba(240,165,0,0.9)',
+      borderWidth: 1,
+    }]},
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#7a7d8e', font: { size: 11 } }, grid: { color: '#2a2d3a' } },
+        y: { ticks: { color: '#7a7d8e', font: { size: 11 },
+              callback: v => fmtM(v) }, grid: { color: '#2a2d3a' } },
+      },
+    },
+  });
+
+  // ── Fetch helpers ─────────────────────────────────────────────────────────
+  async function fetchJSON(url) {
+    const r = await fetch(url);
+    return r.json();
+  }
+
+  // ── Stats cards ───────────────────────────────────────────────────────────
+  async function loadStats() {
+    const d = await fetchJSON('/api/stats');
+    document.getElementById('statTodayValue').textContent  = fmtM(d.today.total_value);
+    document.getElementById('statTodayQty').textContent    = fmtN(d.today.total_qty) + ' units in ' + d.today.drop_events + ' events';
+    document.getElementById('statTodayEvents').textContent = fmtN(d.today.drop_events);
+    document.getElementById('statAllTime').textContent     = fmtM(d.all_time.total_value);
+    document.getElementById('statAllEvents').textContent   = fmtN(d.all_time.drop_events) + ' total events';
+  }
+
+  // ── Summary table ─────────────────────────────────────────────────────────
+  async function loadSummary() {
+    const hours = document.getElementById('summaryHours').value;
+    const rows  = await fetchJSON(`/api/summary?hours=${hours}`);
+    const tbody = document.getElementById('summaryBody');
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td class="item-name">${r.item}</td>
+        <td class="num">${fmtN(r.drop_count)}</td>
+        <td class="num">${fmtN(r.total_qty)}</td>
+        <td class="num">${fmtM(r.avg_unit_price)}</td>
+        <td class="num value-cell">${fmtM(r.total_value)}</td>
+      </tr>`).join('');
+  }
+
+  // ── Timeline chart ────────────────────────────────────────────────────────
+  async function loadTimeline() {
+    const data = await fetchJSON('/api/timeline?hours=6');
+    chart.data.labels   = data.map(r => r.hour.slice(11, 16));
+    chart.data.datasets[0].data = data.map(r => r.total_value);
+    chart.update();
+  }
+
+  // ── Live feed ─────────────────────────────────────────────────────────────
+  let lastSeenId = 0;
+  async function loadFeed() {
+    const drops = await fetchJSON('/api/drops?limit=200');
+    const feed  = document.getElementById('liveFeed');
+    const newDrops = drops.filter(d => d.id > lastSeenId);
+
+    if (newDrops.length === 0) return;
+    lastSeenId = drops[0].id;
+
+    newDrops.forEach(d => {
+      const row = document.createElement('div');
+      row.className = 'feed-row';
+      row.innerHTML = `
+        <span class="feed-ts">${tsHHMM(d.ts)}</span>
+        <span class="feed-qty">+${d.qty}x</span>
+        <span class="feed-item">${d.item}</span>
+        <span class="feed-val">${fmtM(d.total_value)}</span>`;
+      feed.prepend(row);
+    });
+
+    // keep max 100 rows visible
+    while (feed.children.length > 100) feed.removeChild(feed.lastChild);
+  }
+
+  // ── Refresh loop ──────────────────────────────────────────────────────────
+  async function refresh() {
+    await Promise.all([loadStats(), loadSummary(), loadTimeline(), loadFeed()]);
+    const now = new Date().toLocaleTimeString();
+    document.getElementById('lastUpdate').textContent = now;
+  }
+
+  document.getElementById('summaryHours').addEventListener('change', loadSummary);
+
+  refresh();
+  setInterval(refresh, 5000);
+</script>
+</body>
+</html>

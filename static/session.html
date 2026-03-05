@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GoonZu · Sessions</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg:      #0f1117;
+      --surface: #1a1d27;
+      --surface2:#20232f;
+      --border:  #2a2d3a;
+      --accent:  #f0a500;
+      --green:   #4caf7d;
+      --blue:    #5b8dd9;
+      --red:     #e05c5c;
+      --text:    #e4e6f0;
+      --muted:   #7a7d8e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
+
+    /* ── Header / Nav ── */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 24px;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+    }
+    .header-left { display: flex; align-items: center; gap: 24px; }
+    header h1 { font-size: 18px; color: var(--accent); letter-spacing: .5px; white-space: nowrap; }
+    nav { display: flex; gap: 4px; }
+    .nav-link {
+      color: var(--muted); text-decoration: none;
+      padding: 5px 12px; border-radius: 6px; font-size: 13px;
+      transition: background .15s, color .15s;
+    }
+    .nav-link:hover  { background: var(--border); color: var(--text); }
+    .nav-link.active { background: var(--border); color: var(--accent); font-weight: 600; }
+
+    /* ── Session bar ── */
+    .session-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 24px;
+      background: var(--surface2); border-bottom: 1px solid var(--border);
+      gap: 16px; flex-wrap: wrap;
+    }
+    .session-info { display: flex; align-items: center; gap: 16px; }
+    .session-select {
+      background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      padding: 5px 10px; border-radius: 6px; font-size: 13px; min-width: 200px;
+    }
+    .session-meta { font-size: 12px; color: var(--muted); }
+    .session-meta strong { color: var(--text); }
+
+    /* status badge */
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 99px;
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+    }
+    .badge-active { background: #1a3d2a; color: var(--green); }
+    .badge-paused { background: #3a3010; color: var(--accent); }
+    .badge-ended  { background: #2a1a1a; color: var(--red); }
+
+    /* ── Control buttons ── */
+    .session-controls { display: flex; gap: 8px; }
+    .btn {
+      padding: 6px 16px; border-radius: 6px; border: none;
+      font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity .15s;
+    }
+    .btn:disabled { opacity: .35; cursor: not-allowed; }
+    .btn-start  { background: var(--green);  color: #0a1a10; }
+    .btn-pause  { background: var(--accent); color: #1a1000; }
+    .btn-resume { background: var(--blue);   color: #0a1020; }
+    .btn-end    { background: var(--red);    color: #1a0a0a; }
+
+    /* ── Main ── */
+    main { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+
+    /* ── Stat cards ── */
+    .cards-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 16px 20px;
+    }
+    .card h2 {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+      color: var(--muted); margin-bottom: 8px;
+    }
+    .card .big { font-size: 24px; font-weight: 700; color: var(--accent); }
+    .card .sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .card.green .big { color: var(--green); }
+    .card.blue  .big { color: var(--blue);  }
+
+    /* ── Content row ── */
+    .content-row {
+      display: grid; grid-template-columns: 1fr 320px; gap: 16px; align-items: start;
+    }
+
+    /* ── Chart card ── */
+    .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; }
+    .chart-card h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 14px; }
+    #itemChart { width: 100% !important; height: 300px !important; }
+    .chart-empty { text-align: center; color: var(--muted); padding: 60px 0; font-size: 13px; }
+
+    /* ── Items sidebar ── */
+    .items-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; }
+    .items-card h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 14px; }
+    .items-table { width: 100%; border-collapse: collapse; }
+    .items-table th {
+      text-align: left; font-size: 11px; text-transform: uppercase;
+      letter-spacing: .8px; color: var(--muted); padding: 5px 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .items-table th.r, .items-table td.r { text-align: right; }
+    .items-table td { padding: 7px 6px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .items-table tr:last-child td { border-bottom: none; }
+    .items-table tr:hover td { background: var(--surface2); }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+    .val { color: var(--green); font-weight: 500; }
+    .empty-msg { color: var(--muted); font-size: 13px; padding: 20px 0; text-align: center; }
+
+    /* ── No session state ── */
+    .no-session {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; height: 300px; gap: 16px;
+      color: var(--muted); font-size: 15px;
+    }
+    .no-session button { font-size: 15px; padding: 10px 28px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <h1>⚔ GoonZu Farm</h1>
+    <nav>
+      <a href="/static/index.html" class="nav-link">Dashboard</a>
+      <a href="/static/session.html" class="nav-link active">Sessions</a>
+    </nav>
+  </div>
+  <div style="font-size:12px;color:var(--muted)">Auto-refresh <span id="refreshTick" style="color:var(--green)">—</span></div>
+</header>
+
+<!-- Session bar -->
+<div class="session-bar">
+  <div class="session-info">
+    <select class="session-select" id="sessionSelect">
+      <option value="">— No sessions —</option>
+    </select>
+    <div class="session-meta">
+      <span id="sessionStatus"></span>
+      &nbsp;·&nbsp;
+      Started <strong id="sessionStarted">—</strong>
+      &nbsp;·&nbsp;
+      Active <strong id="sessionDuration">—</strong>
+    </div>
+  </div>
+  <div class="session-controls">
+    <button class="btn btn-start"  id="btnStart">▶ New Session</button>
+    <button class="btn btn-pause"  id="btnPause"  disabled>⏸ Pause</button>
+    <button class="btn btn-resume" id="btnResume" disabled>▶ Resume</button>
+    <button class="btn btn-end"    id="btnEnd"    disabled>⏹ End</button>
+  </div>
+</div>
+
+<main>
+  <!-- Stat cards -->
+  <div class="cards-row">
+    <div class="card">
+      <h2>Total Value</h2>
+      <div class="big" id="cardTotal">—</div>
+      <div class="sub" id="cardTotalSub">—</div>
+    </div>
+    <div class="card green">
+      <h2>Avg / Hour (session)</h2>
+      <div class="big" id="cardAvgH">—</div>
+      <div class="sub" id="cardAvgSub">—</div>
+    </div>
+    <div class="card blue">
+      <h2>Moving Avg / Hour</h2>
+      <div class="big" id="cardMoving">—</div>
+      <div class="sub">last 15 min × 4</div>
+    </div>
+    <div class="card">
+      <h2>Active Duration</h2>
+      <div class="big" id="cardDuration" style="color:var(--text);font-size:22px">—</div>
+      <div class="sub" id="cardDurationSub">—</div>
+    </div>
+  </div>
+
+  <!-- Chart + Items -->
+  <div class="content-row" id="contentArea">
+
+    <div class="chart-card">
+      <h2>Accumulated Value by Item</h2>
+      <canvas id="itemChart"></canvas>
+      <div class="chart-empty" id="chartEmpty" style="display:none">No drops in this session yet</div>
+    </div>
+
+    <div class="items-card">
+      <h2>Items</h2>
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th class="r">Drops</th>
+            <th class="r">Qty</th>
+            <th class="r">Total</th>
+          </tr>
+        </thead>
+        <tbody id="itemsBody">
+          <tr><td colspan="4" class="empty-msg">No data</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</main>
+
+<script>
+// ── Palette ────────────────────────────────────────────────────────────────────
+const COLORS = [
+  '#f0a500','#4caf7d','#5b8dd9','#e05c5c',
+  '#9b59b6','#1abc9c','#e67e22','#3498db',
+  '#e91e8c','#00bcd4','#8bc34a','#ff5722',
+];
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+const fmtM  = n => n == null ? '—' : Math.round(n).toLocaleString('en') + ' M';
+const fmtN  = n => n == null ? '—' : Number(n).toLocaleString('en');
+
+function formatDuration(secs) {
+  if (!secs || secs < 0) return '—';
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function fmtTime(iso) {
+  if (!iso) return '—';
+  return iso.slice(11, 16);
+}
+
+async function api(url) {
+  const r = await fetch(url);
+  if (!r.ok) return null;
+  return r.json();
+}
+
+// ── Chart ──────────────────────────────────────────────────────────────────────
+const ctx = document.getElementById('itemChart').getContext('2d');
+let chart = new Chart(ctx, {
+  type: 'line',
+  data: { labels: [], datasets: [] },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: {
+        position: 'top',
+        labels: { color: '#7a7d8e', font: { size: 11 }, boxWidth: 12, padding: 14 }
+      },
+      tooltip: {
+        callbacks: {
+          label: ctx => ` ${ctx.dataset.label}: ${Math.round(ctx.raw).toLocaleString('en')} M`
+        }
+      }
+    },
+    scales: {
+      x: {
+        ticks: { color: '#7a7d8e', font: { size: 11 }, maxTicksLimit: 12 },
+        grid:  { color: '#2a2d3a' }
+      },
+      y: {
+        ticks: { color: '#7a7d8e', font: { size: 11 },
+          callback: v => Math.round(v).toLocaleString('en') + ' M'
+        },
+        grid: { color: '#2a2d3a' }
+      }
+    }
+  }
+});
+
+function buildChartData(raw) {
+  if (!raw || raw.length === 0) return null;
+
+  // Collect unique sorted buckets and unique items
+  const buckets = [...new Set(raw.map(r => r.bucket))].sort();
+  const items   = [...new Set(raw.map(r => r.item))];
+
+  // Map each item→bucket→incremental value
+  const byItemBucket = {};
+  raw.forEach(r => {
+    if (!byItemBucket[r.item]) byItemBucket[r.item] = {};
+    byItemBucket[r.item][r.bucket] = (byItemBucket[r.item][r.bucket] || 0) + r.value;
+  });
+
+  const datasets = items.map((item, i) => {
+    let cum = 0;
+    const data = buckets.map(b => {
+      cum += (byItemBucket[item]?.[b] || 0);
+      return cum;
+    });
+    const color = COLORS[i % COLORS.length];
+    return {
+      label: item,
+      data,
+      fill: false,
+      tension: 0.35,
+      borderColor:     color,
+      backgroundColor: color + '25',
+      pointRadius: buckets.length > 30 ? 0 : 3,
+      pointHoverRadius: 5,
+    };
+  });
+
+  return { labels: buckets.map(b => b.slice(11, 16)), datasets };
+}
+
+function updateChart(raw) {
+  const data = buildChartData(raw);
+  const canvas = document.getElementById('itemChart');
+  const empty  = document.getElementById('chartEmpty');
+
+  if (!data) {
+    canvas.style.display = 'none';
+    empty.style.display  = 'block';
+    return;
+  }
+  canvas.style.display = 'block';
+  empty.style.display  = 'none';
+
+  chart.data.labels   = data.labels;
+  chart.data.datasets = data.datasets;
+  chart.update();
+}
+
+// ── Items table ────────────────────────────────────────────────────────────────
+function updateItemsTable(summary) {
+  const tbody = document.getElementById('itemsBody');
+  if (!summary || summary.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty-msg">No drops yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = summary.map((r, i) => {
+    const color = COLORS[i % COLORS.length];
+    return `
+    <tr>
+      <td><span class="dot" style="background:${color}"></span>${r.item}</td>
+      <td class="r">${fmtN(r.drop_count)}</td>
+      <td class="r">${fmtN(r.total_qty)}</td>
+      <td class="r val">${fmtM(r.total_value)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Stat cards ─────────────────────────────────────────────────────────────────
+function updateCards(stats) {
+  if (!stats) return;
+  document.getElementById('cardTotal').textContent    = fmtM(stats.total_value);
+  document.getElementById('cardTotalSub').textContent = `${fmtN(stats.drop_events)} events · ${fmtN(stats.total_qty)} units`;
+  document.getElementById('cardAvgH').textContent     = fmtM(stats.avg_per_hour);
+  document.getElementById('cardAvgSub').textContent   = `over ${formatDuration(stats.active_seconds)} active`;
+  document.getElementById('cardMoving').textContent   = fmtM(stats.moving_avg_h);
+  document.getElementById('cardDuration').textContent = formatDuration(stats.active_seconds);
+
+  const s = stats.session;
+  document.getElementById('cardDurationSub').textContent =
+    s.status === 'paused' ? 'paused now' : s.status === 'ended' ? 'session ended' : 'active now';
+}
+
+// ── Session bar ────────────────────────────────────────────────────────────────
+function updateSessionBar(session) {
+  const badge = { active: 'badge-active', paused: 'badge-paused', ended: 'badge-ended' };
+  const label = { active: 'Active', paused: 'Paused', ended: 'Ended' };
+
+  if (!session) {
+    document.getElementById('sessionStatus').innerHTML  = '';
+    document.getElementById('sessionStarted').textContent = '—';
+    document.getElementById('sessionDuration').textContent = '—';
+    return;
+  }
+
+  const st = session.status;
+  document.getElementById('sessionStatus').innerHTML =
+    `<span class="badge ${badge[st] || ''}">${label[st] || st}</span>`;
+  document.getElementById('sessionStarted').textContent = fmtTime(session.started_at);
+}
+
+// ── Button states ──────────────────────────────────────────────────────────────
+function setButtonStates(session) {
+  const st = session?.status;
+  document.getElementById('btnStart').disabled  = false;
+  document.getElementById('btnPause').disabled  = st !== 'active';
+  document.getElementById('btnResume').disabled = st !== 'paused';
+  document.getElementById('btnEnd').disabled    = !st || st === 'ended';
+}
+
+// ── Session select ─────────────────────────────────────────────────────────────
+async function loadSessionList() {
+  const sessions = await api('/api/sessions');
+  if (!sessions) return;
+
+  const sel = document.getElementById('sessionSelect');
+  const cur = sel.value;
+  sel.innerHTML = sessions.map(s => {
+    const val = fmtM(s.total_value);
+    const dt  = s.started_at.slice(0, 16).replace('T', ' ');
+    const badge = s.status === 'active' ? ' ●' : s.status === 'paused' ? ' ⏸' : '';
+    return `<option value="${s.id}">#${s.id}${badge}  ${dt}  —  ${val}</option>`;
+  }).join('');
+
+  // Re-select if still valid
+  if (cur && sessions.find(s => String(s.id) === cur)) {
+    sel.value = cur;
+  } else if (sessions.length > 0) {
+    sel.value = String(sessions[0].id);
+  }
+}
+
+// ── Current viewing session ID ─────────────────────────────────────────────────
+function viewingId() {
+  const v = document.getElementById('sessionSelect').value;
+  return v ? parseInt(v) : null;
+}
+
+// ── Full refresh ───────────────────────────────────────────────────────────────
+let activeSession = null;
+
+async function refresh() {
+  // Get active session (for button states)
+  activeSession = await api('/api/sessions/active');
+  setButtonStates(activeSession);
+
+  // Refresh the select list
+  await loadSessionList();
+
+  const id = viewingId();
+  if (!id) {
+    updateCards(null);
+    updateChart(null);
+    updateItemsTable(null);
+    updateSessionBar(null);
+    document.getElementById('sessionDuration').textContent = '—';
+    return;
+  }
+
+  // Load data for viewed session in parallel
+  const [stats, summary, timeline] = await Promise.all([
+    api(`/api/sessions/${id}/stats`),
+    api(`/api/sessions/${id}/summary`),
+    api(`/api/sessions/${id}/timeline`),
+  ]);
+
+  if (stats) {
+    updateCards(stats);
+    updateSessionBar(stats.session);
+    document.getElementById('sessionDuration').textContent =
+      formatDuration(stats.active_seconds);
+  }
+  updateItemsTable(summary);
+  updateChart(timeline);
+
+  document.getElementById('refreshTick').textContent = new Date().toLocaleTimeString();
+}
+
+// ── Button handlers ────────────────────────────────────────────────────────────
+document.getElementById('btnStart').addEventListener('click', async () => {
+  await fetch('/api/sessions/start', { method: 'POST' });
+  await refresh();
+  // Auto-select the new session
+  const sessions = await api('/api/sessions');
+  if (sessions?.length) {
+    document.getElementById('sessionSelect').value = String(sessions[0].id);
+    await refresh();
+  }
+});
+
+document.getElementById('btnPause').addEventListener('click', async () => {
+  if (!activeSession) return;
+  await fetch(`/api/sessions/${activeSession.id}/pause`, { method: 'POST' });
+  await refresh();
+});
+
+document.getElementById('btnResume').addEventListener('click', async () => {
+  if (!activeSession) return;
+  await fetch(`/api/sessions/${activeSession.id}/resume`, { method: 'POST' });
+  await refresh();
+});
+
+document.getElementById('btnEnd').addEventListener('click', async () => {
+  if (!activeSession) return;
+  if (!confirm(`End session #${activeSession.id}?`)) return;
+  await fetch(`/api/sessions/${activeSession.id}/end`, { method: 'POST' });
+  await refresh();
+});
+
+document.getElementById('sessionSelect').addEventListener('change', refresh);
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
