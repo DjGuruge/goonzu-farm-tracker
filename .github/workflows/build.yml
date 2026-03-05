@@ -1,0 +1,74 @@
+name: Build GoonZuFarm.exe
+
+on:
+  push:
+    branches: [master]
+    tags:     ["v*.*.*"]      # v1.0.0, v1.2.3, etc.
+  pull_request:
+    branches: [master]
+  workflow_dispatch:           # manual trigger from GitHub UI
+
+jobs:
+  build:
+    name: Build on Windows
+    runs-on: windows-latest
+
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Python ──────────────────────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # ── 3. Dependencies ────────────────────────────────────────────────────
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      # ── 4. Build ───────────────────────────────────────────────────────────
+      - name: Build exe with PyInstaller
+        run: pyinstaller GoonZuFarm.spec --clean --noconfirm
+
+      # ── 5. Verify ──────────────────────────────────────────────────────────
+      - name: Verify output
+        run: |
+          $size = (Get-Item dist\GoonZuFarm.exe).Length / 1MB
+          Write-Host "GoonZuFarm.exe — $([math]::Round($size, 1)) MB"
+        shell: pwsh
+
+      # ── 6. Upload artifact (every build) ───────────────────────────────────
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GoonZuFarm-${{ github.sha }}
+          path: dist/GoonZuFarm.exe
+          retention-days: 14
+
+      # ── 7. GitHub Release (only on version tags) ───────────────────────────
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "GoonZu Farm Tracker ${{ github.ref_name }}"
+          body: |
+            ## GoonZu Farm Tracker ${{ github.ref_name }}
+
+            ### Install
+            1. Download `GoonZuFarm.exe`
+            2. Double-click → accept UAC prompt
+            3. Dashboard opens at **http://localhost:8000**
+
+            ### Requirements
+            - Windows 10/11
+            - GoonZu.exe must be running
+            - Run as Administrator (UAC prompt handles this automatically)
+          files: dist/GoonZuFarm.exe
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}  # v1.0.0-beta → pre-release
