@@ -3,6 +3,11 @@
 *.db-shm
 *.db-wal
 
+# PyInstaller build artifacts
+build/
+dist/
+*.spec.bak
+
 # Python
 __pycache__/
 *.py[cod]

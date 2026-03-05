@@ -12,7 +12,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 
-DB_NAME = "goonzu_farm.db"
+from config import DB_NAME, STATIC_DIR
 
 
 # ── DB init ────────────────────────────────────────────────────────────────────
@@ -54,7 +54,7 @@ async def lifespan(app: FastAPI):
 
 # ── App ────────────────────────────────────────────────────────────────────────
 app = FastAPI(title="GoonZu Farm", lifespan=lifespan)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 def get_db() -> sqlite3.Connection:

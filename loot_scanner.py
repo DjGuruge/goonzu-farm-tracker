@@ -14,9 +14,10 @@ from datetime import datetime, timezone
 import pymem
 import pymem.process
 
+from config import DB_NAME
+
 # ── Config ────────────────────────────────────────────────────────────────────
 PROCESS_NAME  = "GoonZu.exe"
-DB_NAME       = "goonzu_farm.db"
 SCAN_INTERVAL = 1.0    # seconds between scans
 CHUNK_SIZE    = 4096   # bytes read per chunk
 
