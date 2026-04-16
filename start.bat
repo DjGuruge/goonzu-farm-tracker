@@ -1,28 +1,63 @@
 @echo off
-title GoonZu Farm Launcher
+title GoonZu Farm Tracker - Launcher
+color 0A
 
-echo ============================================
-echo   GoonZu Farm Tracker
-echo ============================================
+echo ========================================
+echo    GoonZu Farm Tracker - Multi-Client
+echo ========================================
 echo.
 
-REM ── API server (normal window) ───────────────
-echo [1/2] Starting API server on http://localhost:8000 ...
-start "GoonZu API" cmd /k "title GoonZu API ^& python api.py"
+:: Verifica se Python è installato
+python --version >nul 2>&1
+if errorlevel 1 (
+    echo [ERRORE] Python non trovato!
+    echo Installa Python da https://python.org
+    pause
+    exit /b 1
+)
 
-REM ── Short delay so API starts first ─────────
-timeout /t 2 /nobreak >nul
+:: Verifica dipendenze
+echo [1/4] Verifica dipendenze Python...
+pip show psutil >nul 2>&1
+if errorlevel 1 (
+    echo Installazione psutil...
+    pip install psutil
+)
 
-REM ── Scanner needs Admin for memory access ───
-echo [2/2] Starting loot scanner (requesting Admin)...
-powershell -Command "Start-Process cmd -ArgumentList '/k title GoonZu Scanner ^&^& python \"%~dp0loot_scanner.py\"' -WorkingDirectory '%~dp0' -Verb RunAs"
+pip show pywin32 >nul 2>&1
+if errorlevel 1 (
+    echo Installazione pywin32...
+    pip install pywin32
+)
 
-REM ── Open dashboard in browser ───────────────
+pip show fastapi >nul 2>&1
+if errorlevel 1 (
+    echo Installazione fastapi...
+    pip install fastapi uvicorn
+)
+
+echo [2/4] Avvio API Server...
+start "GoonZu API Server" cmd /k "title API Server && echo API Server in esecuzione su http://localhost:8000 && python api.py"
+
+:: Attendi che l'API sia pronta
 timeout /t 3 /nobreak >nul
-echo.
-echo Opening dashboard...
-start http://localhost:8000
 
+echo [3/4] Avvio dashboard web...
+start "GoonZu Dashboard" cmd /k "title Dashboard && echo Dashboard disponibile su http://localhost:8000 && start http://localhost:8000"
+
+echo [4/4] Configurazione completata!
 echo.
-echo Both processes started. You can close this window.
-timeout /t 5 /nobreak >nul
+echo ========================================
+echo    STATO SERVIZI:
+echo ========================================
+echo ✅ API Server: http://localhost:8000
+echo ✅ Dashboard: http://localhost:8000
+echo.
+echo ℹ️  NOTA: Lo scanner verra' avviato dal dashboard
+echo    quando selezioni un client GoonZu.
+echo.
+echo ========================================
+echo Premi un tasto per chiudere questa finestra
+echo (i servizi continueranno a funzionare)
+echo ========================================
+pause >nul
