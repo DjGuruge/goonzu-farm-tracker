@@ -16,6 +16,23 @@ import pymem.process
 
 from config import DB_NAME
 
+import psutil
+
+def find_goonzu_processes():
+    """Trova tutti i processi GoonZu.exe in esecuzione"""
+    processes = []
+    for proc in psutil.process_iter(['pid', 'name']):
+        try:
+            if proc.info['name'] == 'GoonZu.exe':
+                processes.append({
+                    'pid': proc.info['pid'],
+                    'name': proc.info['name'],
+                    'memory_usage': proc.memory_info().rss / 1024 / 1024  # MB
+                })
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    return processes
+
 # ── Config ────────────────────────────────────────────────────────────────────
 PROCESS_NAME  = "GoonZu.exe"
 SCAN_INTERVAL = 1.0    # seconds between scans
